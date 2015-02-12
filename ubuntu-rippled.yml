@@ -1,0 +1,64 @@
+---
+# This playbook is kept as loose as possible to help simulate an uncontrolled
+# test network
+- name: Build and deploy a rippled instance
+  hosts: all
+  sudo: true
+  user: ubuntu
+  vars:
+    rippled_repo: git://github.com/ripple/rippled
+    rippled_version: master
+    rippled_home: /srv/rippled
+  tasks:
+    - name: Add PPAs
+      apt_repository: state=present repo={{item}} update_cache=yes
+      with_items:
+        - ppa:ubuntu-toolchain-r/test
+        - ppa:afrank/boost
+    - name: Install packages
+      apt: name={{item}} state=latest
+      with_items:
+        - git
+        - pkg-config
+        - scons
+        - g++-4.8
+        - libboost1.57-all-dev
+        - protobuf-compiler
+        - libprotobuf-dev
+        - libssl-dev
+        - gcc-4.8
+        - binutils-gold
+    - name: Install alternatives
+      command: update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 40 --slave /usr/bin/g++ g++ /usr/bin/g++-4.8
+    - name: Configure alternatives
+      command: update-alternatives --set gcc /usr/bin/gcc-4.8
+    - name: Setup rippled user
+      action:
+        module: user
+        name: rippled
+        comment: RippleD
+        home: "{{rippled_home}}"
+        createhome: yes
+        system: yes
+        shell: /bin/nologin
+    - name: Check out rippled git
+      action:
+        module: git
+        dest: "{{rippled_home}}/git/rippled"
+        repo: "{{rippled_repo}}"
+        version: "{{rippled_version}}"
+        accept_hostkey: true
+      sudo: yes
+      sudo_user: rippled
+    - name: Build rippled
+      shell: chdir={{rippled_home}}/git/rippled scons
+      sudo: yes
+      sudo_user: rippled
+    - name: Install rippled
+      command: cp -p {{rippled_home}}/git/rippled/build/rippled /usr/bin/rippled
+    - name: Install rippled upstart config
+      copy: src=rippled-upstart.conf dest=/etc/init/rippled.conf
+    - name: Install rippled configuration
+      copy: src=rippled.conf dest=/etc/rippled.conf
+    - name: Restart rippled
+      service: name=rippled state=restarted
