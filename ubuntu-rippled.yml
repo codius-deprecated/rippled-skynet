@@ -2,7 +2,7 @@
 # This playbook is kept as loose as possible to help simulate an uncontrolled
 # test network
 - name: Build and deploy a rippled instance
-  hosts: all
+  hosts: tag_runs_rippled_1
   sudo: true
   user: ubuntu
   vars:
