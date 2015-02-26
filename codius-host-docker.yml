@@ -1,0 +1,35 @@
+---
+- name: Codius Host dockerized server
+  hosts: tag_runs_codius_host_1
+  remote_user: ubuntu
+  sudo: yes
+  vars:
+    ansible_ssh_private_key_file: keys/{{ec2_region}}.pem
+  tasks:
+    - name: Enable docker 1.17 ppa
+      apt_repository: repo='deb https://get.docker.io/ubuntu docker main' state=present
+    - name: Install docker apt key
+      apt_key: keyserver=keyserver.ubuntu.com id=36A1D7869245C8950F966E92D8576A8BA88D21E9
+    - name: Update apt
+      apt: update_cache=yes
+    - name: Install docker
+      apt: name=lxc-docker state=latest
+    - name: Install easy_install
+      apt: name=python-setuptools state=latest
+    - name: Update pip
+      command: easy_install -U pip
+    - name: Install docker-py
+      pip: name=docker-py state=latest
+    - name: Create contracts storage
+      file: name=/srv/codius/contracts/ state=directory
+    - name: Generate SSL key
+      command: openssl req -new -nodes -x509 -subj "/C=US/ST=California/L=SanFrancisco/O=Engineering/CN=codius.host" -days 3650 -keyout /srv/codius/server.key -out /srv/codius/server.crt -extensions v3_ca creates=/srv/codius/server.key
+    - name: Pull latest codius image
+      command: "{{item}}"
+      ignore_errors: yes
+      with_items:
+        - docker pull codius/codius-host:latest
+        - docker stop codius_host
+        - docker rm codius_host
+    - name: Start codius host
+      docker: env="SSL_KEY=/contracts/server.key,SSL_CERT=/contracts/server.crt,CONTRACTS_STORAGE=/contracts/" ports=443:8080 name=codius_host state=running volumes=/srv/codius:/contracts image=codius/codius-host:latest
