@@ -32,4 +32,4 @@
         - docker stop codius_host
         - docker rm codius_host
     - name: Start codius host
-      docker: env="SSL_KEY=/contracts/server.key,SSL_CERT=/contracts/server.crt,CONTRACTS_STORAGE=/contracts/" ports=443:8080 name=codius_host state=running volumes=/srv/codius:/contracts image=codius/codius-host:latest
+      docker: env="SSL_KEY=/contracts/server.key,SSL_CERT=/contracts/server.crt,CONTRACTS_STORAGE=/contracts/,RIPPLE_ADDRESS=rJs22yDQ43TVGXxg8FNr9L9oCxWK46CMWY,starting_cpu_balance=100" command="start -f ripple_billing" ports=443:8080 name=codius_host state=running volumes=/srv/codius:/contracts image=codius/codius-host:latest
