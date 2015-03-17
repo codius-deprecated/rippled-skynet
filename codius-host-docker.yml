@@ -1,10 +1,12 @@
 ---
 - name: Codius Host dockerized server
   hosts: tag_runs_codius_host_1
+  serial: 2
   remote_user: ubuntu
   sudo: yes
   vars:
     ansible_ssh_private_key_file: keys/{{ec2_region}}.pem
+    codius_version: latest
   tasks:
     - name: Enable docker 1.17 ppa
       apt_repository: repo='deb https://get.docker.io/ubuntu docker main' state=present
@@ -24,12 +26,13 @@
       file: name=/srv/codius/contracts/ state=directory
     - name: Generate SSL key
       command: openssl req -new -nodes -x509 -subj "/C=US/ST=California/L=SanFrancisco/O=Engineering/CN=codius.host" -days 3650 -keyout /srv/codius/server.key -out /srv/codius/server.crt -extensions v3_ca creates=/srv/codius/server.key
-    - name: Pull latest codius image
+    - name: Pull codius image for {{codius_version}}
+      command: docker pull codius/codius-host:{{codius_version}}
+    - name: Stop and remove old codius host container
       command: "{{item}}"
       ignore_errors: yes
       with_items:
-        - docker pull codius/codius-host:latest
         - docker stop codius_host
         - docker rm codius_host
     - name: Start codius host
-      docker: env="SSL_KEY=/contracts/server.key,SSL_CERT=/contracts/server.crt,CONTRACTS_STORAGE=/contracts/,RIPPLE_ADDRESS=rJs22yDQ43TVGXxg8FNr9L9oCxWK46CMWY,starting_cpu_balance=100" command="start -f ripple_billing" ports=443:8080 name=codius_host state=running volumes=/srv/codius:/contracts image=codius/codius-host:latest
+      docker: env="SSL_KEY=/contracts/server.key,SSL_CERT=/contracts/server.crt,CONTRACTS_STORAGE=/contracts/,RIPPLE_ADDRESS=rJs22yDQ43TVGXxg8FNr9L9oCxWK46CMWY,starting_cpu_balance=100" command="start -f ripple_billing" ports=443:8080 name=codius_host state=running volumes=/srv/codius:/contracts image=codius/codius-host:{{codius_version}}
